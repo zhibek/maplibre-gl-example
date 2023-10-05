@@ -7,6 +7,7 @@ import GeocoderControl from './GeocoderControl';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import countryboundariesVectorMapstyle from './countryboundaries_vector_mapstyle.json';
 import naturalearthVectorMapstyle from './naturalearth_vector_mapstyle.json';
 import stamenWatercolorMapstyle from './stamen_watercolor_mapstyle.json';
 
@@ -28,7 +29,7 @@ const MapView = () => {
       }}
       style={{width: '100%', height: '100%'}}
       mapLib={maplibregl}
-      mapStyle={stamenWatercolorMapstyle}
+      mapStyle={countryboundariesVectorMapstyle}
       hash={true}
     >
       <GeocoderControl />
