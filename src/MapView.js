@@ -11,14 +11,6 @@ import countryboundariesVectorMapstyle from './countryboundaries_vector_mapstyle
 // import naturalearthVectorMapstyle from './naturalearth_vector_mapstyle.json';
 // import stamenWatercolorMapstyle from './stamen_watercolor_mapstyle.json';
 
-const usePrevious = (value) => {
-  const ref = useRef();
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-  return ref.current;
-};
-
 const cloneLayerById = (mapJson, id, newId) => {
   const layers = mapJson.layers.filter((layer) => ( layer.id === 'country-area'));
 
@@ -36,7 +28,6 @@ const cloneLayerById = (mapJson, id, newId) => {
 const MapView = () => {
   const mapRef = useRef();
   const [activeFeature, setActiveFeature] = useState();
-  const prevActiveFeature = usePrevious(activeFeature);
 
   const filter = useMemo(
     () => {
@@ -50,7 +41,8 @@ const MapView = () => {
 
   const highlightLayer = cloneLayerById(countryboundariesVectorMapstyle, 'countries-area', 'countries-area-highlight');
   if (highlightLayer) {
-    highlightLayer.paint['fill-opacity'] = 0.8;
+    highlightLayer.paint['fill-opacity-transition'] = { duration: 500 };
+    highlightLayer.paint['fill-opacity'] = 0;
   }
 
   useEffect(() => {
@@ -66,8 +58,12 @@ const MapView = () => {
 
     if (features.length > 0) {
       setActiveFeature(features[0]);
+
+      mapRef.current.getMap().setPaintProperty('countries-area-highlight', 'fill-opacity', 0.8);
     } else {
       setActiveFeature(null);
+
+      mapRef.current.getMap().setPaintProperty('countries-area-highlight', 'fill-opacity', 0);
     }
   };
 
