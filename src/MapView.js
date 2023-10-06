@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Map, { NavigationControl } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
@@ -11,7 +11,19 @@ import countryboundariesVectorMapstyle from './countryboundaries_vector_mapstyle
 // import naturalearthVectorMapstyle from './naturalearth_vector_mapstyle.json';
 // import stamenWatercolorMapstyle from './stamen_watercolor_mapstyle.json';
 
+const usePrevious = (value) => {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+  return ref.current;
+};
+
 const MapView = () => {
+  const mapRef = useRef();
+  const [activeFeature, setActiveFeature] = useState();
+  const prevActiveFeature = usePrevious(activeFeature);
+
   useEffect(() => {
     let protocol = new Protocol();
     maplibregl.addProtocol('pmtiles', protocol.tile);
@@ -20,8 +32,47 @@ const MapView = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeFeature) {
+      mapRef.current.setFeatureState(
+        {
+          source: 'countryboundaries_vector',
+          sourceLayer: 'country',
+          id: activeFeature.id,
+        },
+        {
+          hover: true
+        }
+      );
+    }
+
+    if (prevActiveFeature && (prevActiveFeature.id !== activeFeature?.id)) {
+      mapRef.current.setFeatureState(
+        {
+          source: 'countryboundaries_vector',
+          sourceLayer: 'country',
+          id: prevActiveFeature.id,
+        },
+        {
+          hover: false
+        }
+      );
+    }
+  }, [activeFeature, prevActiveFeature]);
+
+  const onFeatureActive = (e) => {
+    const features = e.features || [];
+
+    if (features.length > 0) {
+      setActiveFeature(features[0]);
+    } else {
+      setActiveFeature(null);
+    }
+  };
+
   return (
     <Map
+      ref={mapRef}
       initialViewState={{
         longitude: 0,
         latitude: 51.5,
@@ -31,6 +82,9 @@ const MapView = () => {
       mapLib={maplibregl}
       mapStyle={countryboundariesVectorMapstyle}
       hash={true}
+      interactiveLayerIds={["country-area"]}
+      onClick={onFeatureActive}
+      onMouseMove={onFeatureActive}
     >
       <GeocoderControl />
       <NavigationControl position="top-left" showCompass={false} />
