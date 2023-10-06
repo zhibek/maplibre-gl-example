@@ -1,5 +1,5 @@
-import { useRef, useState, useEffect } from 'react';
-import Map, { NavigationControl } from 'react-map-gl/maplibre';
+import { useRef, useState, useMemo, useEffect } from 'react';
+import Map, { Layer, NavigationControl } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 
@@ -19,10 +19,39 @@ const usePrevious = (value) => {
   return ref.current;
 };
 
+const cloneLayerById = (mapJson, id, newId) => {
+  const layers = mapJson.layers.filter((layer) => ( layer.id === 'country-area'));
+
+  if (!layers?.length) {
+    return null;
+  }
+
+  const newLayer = structuredClone(layers[0]);
+
+  newLayer.id = newId;
+
+  return newLayer;
+}
+
 const MapView = () => {
   const mapRef = useRef();
   const [activeFeature, setActiveFeature] = useState();
   const prevActiveFeature = usePrevious(activeFeature);
+
+  const filter = useMemo(
+    () => {
+      if (!activeFeature?.id) {
+        return ['in', 'ADM0_A3', ''];
+      }
+      return ['in', 'ADM0_A3', activeFeature?.properties?.ADM0_A3];
+    },
+    [activeFeature]
+  );
+
+  const highlightLayer = cloneLayerById(countryboundariesVectorMapstyle, 'countries-area', 'countries-area-highlight');
+  if (highlightLayer) {
+    highlightLayer.paint['fill-opacity'] = 0.8;
+  }
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -31,34 +60,6 @@ const MapView = () => {
       maplibregl.removeProtocol('pmtiles');
     };
   }, []);
-
-  useEffect(() => {
-    if (activeFeature) {
-      mapRef.current.setFeatureState(
-        {
-          source: 'countryboundaries_vector',
-          sourceLayer: 'country',
-          id: activeFeature.id,
-        },
-        {
-          hover: true
-        }
-      );
-    }
-
-    if (prevActiveFeature && (prevActiveFeature.id !== activeFeature?.id)) {
-      mapRef.current.setFeatureState(
-        {
-          source: 'countryboundaries_vector',
-          sourceLayer: 'country',
-          id: prevActiveFeature.id,
-        },
-        {
-          hover: false
-        }
-      );
-    }
-  }, [activeFeature, prevActiveFeature]);
 
   const onFeatureActive = (e) => {
     const features = e.features || [];
@@ -88,6 +89,13 @@ const MapView = () => {
     >
       <GeocoderControl />
       <NavigationControl position="top-left" showCompass={false} />
+      {!!highlightLayer?.id && (
+        <Layer
+          filter={filter}
+          beforeId="country-area"
+          { ...highlightLayer }
+        />
+      )}
     </Map>
   );
 };

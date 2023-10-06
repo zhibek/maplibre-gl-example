@@ -83,12 +83,7 @@
             "source-layer": "country",
             "paint": {
                 "fill-color": "#226688",
-                "fill-opacity": [
-                    "case",
-                    ["boolean", ["feature-state", "hover"], false],
-                    0.8,
-                    0.4
-                ]
+                "fill-opacity": 0.4
             }
         },
         {
