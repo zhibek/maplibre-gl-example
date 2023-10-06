@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
-import Map, { Layer, NavigationControl } from 'react-map-gl/maplibre';
+import MapElement, { Layer, NavigationControl } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 
@@ -27,23 +27,7 @@ const cloneLayerById = (mapJson, id, newId) => {
 
 const MapView = () => {
   const mapRef = useRef();
-  const [activeFeature, setActiveFeature] = useState();
-
-  const filter = useMemo(
-    () => {
-      if (!activeFeature?.id) {
-        return ['in', 'ADM0_A3', ''];
-      }
-      return ['in', 'ADM0_A3', activeFeature?.properties?.ADM0_A3];
-    },
-    [activeFeature]
-  );
-
-  const highlightLayer = cloneLayerById(countryboundariesVectorMapstyle, 'countries-area', 'countries-area-highlight');
-  if (highlightLayer) {
-    highlightLayer.paint['fill-opacity-transition'] = { duration: 500 };
-    highlightLayer.paint['fill-opacity'] = 0;
-  }
+  const [activeFeatures, setActiveFeatures] = useState([]);
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -53,22 +37,58 @@ const MapView = () => {
     };
   }, []);
 
+  const layerTemplate = cloneLayerById(countryboundariesVectorMapstyle, 'countries-area', `countries-area-highlight-template`);
+  layerTemplate.paint['fill-opacity'] = 0; // TODO
+  layerTemplate.paint['fill-opacity-transition'] = { duration: 1000 };
+
+  const buildHighlightLayer = (feature) => {
+    const id = feature?.id;
+    const code = feature?.properties?.ADM0_A3;
+
+    const layer = structuredClone(layerTemplate);
+    layer.id = `countries-area-highlight-${id}`;
+    layer.key = `countries-area-highlight-${id}`;
+    layer.filter = ['in', 'ADM0_A3', code];
+
+    return layer;
+  };
+
   const onFeatureActive = (e) => {
     const features = e.features || [];
 
     if (features.length > 0) {
-      setActiveFeature(features[0]);
+      setActiveFeatures(current => {
+        const list = [...current, features[0]];
+        const map = new Map(list.map(item => [item.id, item]));
+        const uniques = [...map.values()];
 
-      mapRef.current.getMap().setPaintProperty('countries-area-highlight', 'fill-opacity', 0.8);
+        current.forEach((oldFeature) => {
+          if (oldFeature?.id === features[0]?.id) {
+            return;
+          }
+
+          mapRef.current.getMap().setPaintProperty(`countries-area-highlight-${oldFeature.id}`, 'fill-opacity', 0);
+        });
+
+        setTimeout(() => {
+          mapRef.current.getMap().setPaintProperty(`countries-area-highlight-${features[0].id}`, 'fill-opacity', 0.8);
+        }, 50);
+
+        return uniques;
+      });
     } else {
-      setActiveFeature(null);
+      setActiveFeatures(current => {
+        current.forEach((oldFeature) => {
+          mapRef.current.getMap().setPaintProperty(`countries-area-highlight-${oldFeature.id}`, 'fill-opacity', 0);
+        });
 
-      mapRef.current.getMap().setPaintProperty('countries-area-highlight', 'fill-opacity', 0);
+        return [...current];
+      });
     }
   };
 
   return (
-    <Map
+    <MapElement
       ref={mapRef}
       initialViewState={{
         longitude: 0,
@@ -85,14 +105,13 @@ const MapView = () => {
     >
       <GeocoderControl />
       <NavigationControl position="top-left" showCompass={false} />
-      {!!highlightLayer?.id && (
+      {activeFeatures.map(feature => (
         <Layer
-          filter={filter}
           beforeId="country-area"
-          { ...highlightLayer }
+          { ...buildHighlightLayer(feature) }
         />
-      )}
-    </Map>
+      ))}
+    </MapElement>
   );
 };
 
